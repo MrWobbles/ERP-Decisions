@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded',function(){
   let sessionTimer = null;
   let sessionMsLeft = 0;
   let sessionActive = false;
+  let questionsAnswered = 0;
 
   function clearTimer(){
     if(timer) { clearInterval(timer); timer = null; }
@@ -76,10 +77,25 @@ document.addEventListener('DOMContentLoaded',function(){
     sessionActive = false;
   }
 
+  function showResultsModal(){
+    const modal = document.getElementById('results-modal');
+    const count = document.getElementById('results-count');
+    if(modal && count){
+      count.textContent = questionsAnswered;
+      modal.style.display = 'flex';
+    }
+  }
+
+  function closeResultsModal(){
+    const modal = document.getElementById('results-modal');
+    if(modal) modal.style.display = 'none';
+  }
+
   function startSessionTimerFromInput(){
     const mins = Number(sessionInput?.value || 0);
     if(!mins || mins <= 0) return false;
     clearSessionTimer();
+    questionsAnswered = 0; // reset counter at session start
     sessionMsLeft = Math.floor(mins * 60 * 1000);
     const start = Date.now();
     const end = start + sessionMsLeft;
@@ -93,13 +109,15 @@ document.addEventListener('DOMContentLoaded',function(){
       const rs = Math.floor((remaining % 60000) / 1000);
       if(sessionRemainingEl) sessionRemainingEl.textContent = `${rm}:${String(rs).padStart(2,'0')}`;
       if(remaining <= 0){
-        // time up: reset everything
+        // time up: reset everything then show results
         clearSessionTimer();
         clearTimer();
         showControls(false);
         try{ QAQuestionGenerator.resetHistory(); }catch{}
         if(qArea) qArea.textContent = 'Session ended. All progress reset.';
         updateProgress();
+        // Show modal after a brief delay to ensure reset completes
+        setTimeout(showResultsModal, 100);
       }
     }, 250);
     return true;
@@ -189,12 +207,17 @@ document.addEventListener('DOMContentLoaded',function(){
     const selected = document.querySelector('input[name="choice"]:checked');
     const selText = selected?.nextElementSibling?.textContent || 'No selection';
     qArea.textContent = `You selected: ${selText}`;
+    questionsAnswered++; // increment counter
     // delete from file (fire and forget) and advance immediately
     QAQuestionGenerator.deletePairFromFile(currentQuestionIndex).catch(() => {});
     setTimeout(presentNext, 600);
   };
   choice0?.addEventListener('change', handleRadioChange);
   choice1?.addEventListener('change', handleRadioChange);
+
+  // Modal close button
+  const closeModalBtn = document.getElementById('close-modal');
+  closeModalBtn?.addEventListener('click', closeResultsModal);
 
   // Reset
   resetBtn?.addEventListener('click', ()=>{
