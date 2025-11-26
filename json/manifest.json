@@ -1,8 +1,26 @@
 [
-  "pairs-1.json",
-  "pairs-2.json",
-  "pairs-3.json",
-  "pairs-4.json",
-  "pairs-5.json",
-  "pairs-6.json"
+  {
+    "name": "Sunrise",
+    "file": "pairs-1.json"
+  },
+  {
+    "name": "Ocean",
+    "file": "pairs-2.json"
+  },
+  {
+    "name": "Mountain",
+    "file": "pairs-3.json"
+  },
+  {
+    "name": "Forest",
+    "file": "pairs-4.json"
+  },
+  {
+    "name": "Desert",
+    "file": "pairs-5.json"
+  },
+  {
+    "name": "River",
+    "file": "pairs-6.json"
+  }
 ]

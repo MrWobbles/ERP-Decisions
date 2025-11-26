@@ -59,6 +59,19 @@
     localStorage.setItem(key, JSON.stringify(arr));
   }
 
+  function getRemainingCount(filename){
+    if(!filename) return 0;
+    const key = KEY_REMAIN_BASE + ':' + filename;
+    const r = localStorage.getItem(key);
+    if(!r) return 0;
+    try {
+      const arr = JSON.parse(r);
+      return Array.isArray(arr) ? arr.length : 0;
+    } catch(e){
+      return 0;
+    }
+  }
+
   // Load file using XMLHttpRequest for file:// protocol support
   function loadFile(filename){
     if(!filename) return Promise.reject(new Error('No filename provided'));
@@ -153,6 +166,7 @@
     resetHistory,
     deletePairFromFile,
     totalCombinations,
+    getRemainingCount,
     _currentFile: () => currentFile
   };
 

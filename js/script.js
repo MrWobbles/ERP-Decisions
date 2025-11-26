@@ -40,22 +40,78 @@ document.addEventListener('DOMContentLoaded',function(){
   const countdownEl = document.getElementById('countdown');
   // session timer controls
   const sessionInput = document.getElementById('session-minutes');
-  const startSessionBtn = document.getElementById('start-session');
   const sessionRemainingEl = document.getElementById('session-remaining');
 
   let currentQuestionIndex = null; // track index for deletion
 
   // populate file selector from manifest
-  function populateFileSelect(){
-    const files = ['pairs-1.json', 'pairs-2.json', 'pairs-3.json', 'pairs-4.json', 'pairs-5.json'];
-    fileSelect.innerHTML = '<option value="">Select a File</option>' + 
-      files.map(f => `<option value="${f}">${f}</option>`).join('');
+  async function populateFileSelect(){
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', 'json/manifest.json', false); // synchronous for simplicity
+      xhr.send();
+      if(xhr.status === 200 || xhr.status === 0){
+        const manifest = JSON.parse(xhr.responseText);
+        fileSelect.innerHTML = '<option value="">Select a File</option>' + 
+          manifest.map(item => {
+            // Support both new format {name, file} and old format (string)
+            if(typeof item === 'object' && item.name && item.file){
+              return `<option value="${item.file}">${item.name}</option>`;
+            } else {
+              return `<option value="${item}">${item}</option>`;
+            }
+          }).join('');
+      } else {
+        throw new Error('Failed to load manifest');
+      }
+    } catch(e){
+      console.error('Error loading manifest:', e);
+      // Fallback to hardcoded list
+      const files = ['pairs-1.json', 'pairs-2.json', 'pairs-3.json', 'pairs-4.json', 'pairs-5.json'];
+      fileSelect.innerHTML = '<option value="">Select a File</option>' + 
+        files.map(f => `<option value="${f}">${f}</option>`).join('');
+    }
   }
 
-  function updateProgress(){
+  // Update progress when file selection changes
+  async function updateProgressForSelectedFile(){
+    if(!fileSelect || !progress) return;
+    const selectedFile = fileSelect.value;
+    if(!selectedFile){
+      progress.textContent = '';
+      return;
+    }
+    // Get remaining count from localStorage for selected file
+    const remaining = QAQuestionGenerator.getRemainingCount(selectedFile);
+    if(remaining > 0){
+      progress.textContent = `Remaining: ${remaining}`;
+    } else {
+      // If no localStorage data, we need to load the file to get the total
+      // This happens when file hasn't been loaded yet or all questions answered
+      try {
+        const tempFile = QAQuestionGenerator._currentFile();
+        await QAQuestionGenerator.loadFile(selectedFile);
+        const total = QAQuestionGenerator.totalCombinations();
+        progress.textContent = `Available: ${total}`;
+        // Restore previous file if it was different
+        if(tempFile && tempFile !== selectedFile){
+          await QAQuestionGenerator.loadFile(tempFile);
+        }
+      } catch(e){
+        progress.textContent = 'Error loading file';
+      }
+    }
+  }
+
+  function updateProgress(remainingCount){
     if(!progress || typeof QAQuestionGenerator === 'undefined') return;
-    const total = QAQuestionGenerator.totalCombinations();
-    progress.textContent = `Total: ${total}`;
+    // If remainingCount is provided, use it; otherwise get total from generator
+    if(typeof remainingCount === 'number'){
+      progress.textContent = `Remaining: ${remainingCount}`;
+    } else {
+      const total = QAQuestionGenerator.totalCombinations();
+      progress.textContent = `Total: ${total}`;
+    }
   }
 
   let timer = null;
@@ -109,12 +165,11 @@ document.addEventListener('DOMContentLoaded',function(){
       const rs = Math.floor((remaining % 60000) / 1000);
       if(sessionRemainingEl) sessionRemainingEl.textContent = `${rm}:${String(rs).padStart(2,'0')}`;
       if(remaining <= 0){
-        // time up: reset everything then show results
+        // time up: clear UI then show results (don't reset localStorage)
         clearSessionTimer();
         clearTimer();
         showControls(false);
-        try{ QAQuestionGenerator.resetHistory(); }catch{}
-        if(qArea) qArea.textContent = 'Session ended. All progress reset.';
+        if(qArea) qArea.textContent = 'Session ended.';
         updateProgress();
         // Show modal after a brief delay to ensure reset completes
         setTimeout(showResultsModal, 100);
@@ -147,7 +202,7 @@ document.addEventListener('DOMContentLoaded',function(){
     if(choice0) choice0.checked = false;
     if(choice1) choice1.checked = false;
     showControls(true);
-    updateProgress();
+    updateProgress(res.remaining); // Pass the actual remaining count
     
     clearTimer();
     timeLeft = TIME_LIMIT;
@@ -175,7 +230,7 @@ document.addEventListener('DOMContentLoaded',function(){
     }
     try {
       await QAQuestionGenerator.loadFile(file);
-      QAQuestionGenerator.resetHistory();
+      // Don't reset history - let localStorage track asked questions
       qArea.textContent = `Loaded ${file}. Press "Next question" to begin.`;
       showControls(false);
       updateProgress();
@@ -192,12 +247,6 @@ document.addEventListener('DOMContentLoaded',function(){
       startSessionTimerFromInput();
     }
     presentNext();
-  });
-
-  // Start session timer (minutes)
-  startSessionBtn?.addEventListener('click', ()=>{
-    const ok = startSessionTimerFromInput();
-    if(!ok && sessionRemainingEl) sessionRemainingEl.textContent = 'Enter minutes (>0)';
   });
 
   // Auto-answer when radio button is clicked
@@ -230,4 +279,7 @@ document.addEventListener('DOMContentLoaded',function(){
   });
 
   populateFileSelect();
+  
+  // Listen for file selection changes
+  fileSelect?.addEventListener('change', updateProgressForSelectedFile);
 });
