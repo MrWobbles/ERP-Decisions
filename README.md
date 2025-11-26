@@ -1,73 +1,194 @@
-# Simple Static Site
+# Q&A ERP Exposure Tool
 
-This is a minimal HTML/CSS/JS starter site.
+An interactive decision-making tool that presents binary-choice questions with timed responses. Designed for ERP (Event-Related Potential) exposure exercises where users must make quick decisions between two options.
 
-Files created:
+## Features
 
-- `index.html` - main page
-- `css/styles.css` - styles
-- `js/script.js` - small interactive helpers (theme toggle, form demo)
+- **Timed Questions**: Each question has a 5-second countdown timer
+- **Auto-advance**: Questions automatically advance when answered or when time expires
+- **Session Timer**: Set a custom session duration (in minutes) that resets all progress when expired
+- **No Repeats**: Questions are never repeated within a session using localStorage-based tracking
+- **Multiple Question Sets**: Load different JSON files containing question pairs
+- **Progress Tracking**: Real-time display of total questions remaining
+- **Clean BEM CSS**: Properly structured, maintainable styles using BEM methodology
 
-How to use
+## Project Structure
 
-Open the site in a browser directly by double-clicking `index.html`, or run a local static server.
+```
+Q&A/
+├── index.html              # Main application page
+├── css/
+│   └── styles.css         # BEM-structured styles
+├── js/
+│   ├── script.js          # Main UI logic and timers
+│   └── question-generator.js  # Question loading and state management
+├── json/
+│   ├── pairs-1.json       # Question pair sets
+│   ├── pairs-2.json
+│   └── ...
+├── netlify/
+│   └── functions/
+│       └── delete-pair.js # Serverless function for pair deletion
+├── server.ps1             # Local PowerShell HTTP server
+└── server.js              # Local Node.js/Express server (alternative)
+```
 
-Using Python (if installed):
+## Usage
+
+### Running Locally
+
+**Option 1: PowerShell Server (Recommended for Windows)**
 
 ```powershell
-# from the project folder
+cd 'C:\Users\mrwob\Desktop\Sites\Q&A'
+powershell -ExecutionPolicy Bypass -File server.ps1 -Port 3000
+```
+
+Then open http://localhost:3000
+
+**Option 2: Node.js Server** (requires Node.js installed)
+
+```powershell
+npm install express
+node server.js
+```
+
+Then open http://localhost:3000
+
+**Option 3: Python Server**
+
+```powershell
 python -m http.server 8000
-# then open http://localhost:8000 in your browser
 ```
 
-Using Node (npx serve):
+Then open http://localhost:8000
 
-```powershell
-npx serve -s . -l 5000
-# then open http://localhost:5000
+### How to Use the Tool
+
+1. **Select a Question File**: Choose a JSON file from the dropdown (e.g., `pairs-1.json`)
+2. **Load the File**: Click "Load file" to load the question pairs
+3. **Set Session Timer** (Optional): Enter minutes in the timer input
+4. **Start Questions**: Click "Start Questions" - this also starts the session timer if configured
+5. **Answer Questions**: Click on either option (left or right) to answer
+6. **Auto-advance**: Questions automatically move to the next after answering or timeout
+7. **Session End**: When the session timer expires, all progress resets
+
+## Technical Details
+
+### Question Format
+
+Questions are stored in JSON files with the following structure:
+
+```json
+{
+  "pairs": [
+    ["Red", "Blue"],
+    ["Hot", "Cold"],
+    ["Up", "Down"]
+  ]
+}
 ```
 
-Using VS Code: install the Live Server extension and click "Go Live".
+Or as a simple array:
 
-Next steps
-
-- Customize the content, styles, or add pages.
-- Add a build step or deploy to Netlify / GitHub Pages.
-
-Publish to GitHub Pages (automatic via GitHub Actions)
-
-This project includes a GitHub Actions workflow at `.github/workflows/pages.yml` that will automatically publish the site to GitHub Pages whenever you push to the `main` branch.
-
-Quick steps to publish:
-
-1. Create a repository on GitHub (or use the GitHub CLI):
-
-```powershell
-# Using GitHub CLI (optional):
-gh repo create <USERNAME>/<REPO> --public --source=. --remote=origin --push
+```json
+[
+  ["Real", "Fake"],
+  ["Truth", "Lie"]
+]
 ```
 
-2. Or create locally and push manually (replace `<USERNAME>` and `<REPO>`):
+### State Management
+
+- **Per-file localStorage**: Each question file maintains its own state using namespaced keys:
+  - `qa_seed_v1:{filename}` - Seeded random number for deterministic shuffle
+  - `qa_remain_v1:{filename}` - Array of remaining question indices
+- **Deterministic Shuffling**: Uses Mulberry32 PRNG with Fisher-Yates shuffle for reproducible question order
+- **Browser-specific**: Each browser/user maintains independent progress
+
+### Timers
+
+1. **Per-Question Timer**: 5-second countdown for each question
+   - Auto-skips unanswered questions when time expires
+   - Clears when answer is selected
+   
+2. **Session Timer**: User-configurable duration (minutes)
+   - Starts when questions begin (if configured)
+   - Displays as `mm:ss` countdown
+   - Resets all progress when expired
+
+### BEM CSS Architecture
+
+The project uses BEM (Block Element Modifier) methodology:
+
+- **Block**: `.qa` - Main question-answer component
+- **Elements**: `.qa__filepicker`, `.qa__toolbar`, `.qa__controls`, `.qa__form`, `.qa__options`, `.qa__countdown`, `.qa__session`
+- **Modifiers**: `.qa__option--left`, `.qa__option--right`
+
+## Deployment
+
+### GitHub Pages (Static Only)
+
+⚠️ **Note**: The delete functionality won't work on GitHub Pages as it's static-only hosting.
+
+1. **Initialize and push to GitHub**:
 
 ```powershell
 git init
 git add .
-git commit -m "Initial site"
+git commit -m "Initial commit"
 git branch -M main
-git remote add origin https://github.com/<USERNAME>/<REPO>.git
+git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
 git push -u origin main
 ```
 
-3. After you push to `main`, the GitHub Actions workflow will run and deploy your site to GitHub Pages. You can check the Actions tab in the repository for progress and logs.
+2. **Enable GitHub Pages**:
+   - Go to repository Settings → Pages
+   - Source: `main` branch, `/ (root)` folder
+   - Save
 
-Notes & troubleshooting
+Your site will be available at: `https://YOUR-USERNAME.github.io/YOUR-REPO/`
 
-- If you use branch protection or organization policies, ensure Actions are allowed to run and to publish Pages.
-- By default the site will be published at `https://<USERNAME>.github.io/<REPO>/` (or at your custom domain if you add a `CNAME`).
-- If you prefer manual publishing, you can also enable Pages from the repository settings and set the source to the `gh-pages` branch or the `docs/` folder.
+### Netlify (Recommended for Full Functionality)
 
-If you want, I can also:
+Supports both static files AND serverless functions (delete API):
 
-- Add a `CNAME` file for a custom domain.
-- Add a small GitHub Action to automatically create a release or tag when publishing.
-- Or set up a `gh-pages` deploy script using `gh-pages` npm package instead of the Pages action.
+1. Connect your GitHub repository to Netlify
+2. Build settings:
+   - Build command: (leave empty)
+   - Publish directory: `.`
+3. Deploy
+
+The delete API at `netlify/functions/delete-pair.js` will automatically work.
+
+## Development
+
+### Adding Question Sets
+
+1. Create a new JSON file in `/json/` folder (e.g., `pairs-6.json`)
+2. Follow the format: `{"pairs": [["Option1", "Option2"], ...]}`
+3. Update `js/script.js` in `populateFileSelect()` to include the new file
+
+### Modifying Timer Durations
+
+- **Per-question timer**: Edit `TIME_LIMIT` constant in `js/script.js` (default: 5 seconds)
+- **Session timer**: User-configurable via UI input (in minutes)
+
+### Styling Customization
+
+All styles are in `css/styles.css` using BEM classes. Key elements:
+
+- `.qa__controls` - Main 250px question container with border
+- `.qa__option--left` / `.qa__option--right` - Split background colors (#f2f2f2 / #dedede)
+- `.qa__countdown` - Positioned at bottom center
+- CSS variables for theming: `--bg`, `--text`, `--accent`, `--muted`
+
+## Known Limitations
+
+- **Delete API**: Only works with local Node.js server or Netlify Functions deployment; GitHub Pages doesn't support server-side operations
+- **Browser-specific state**: Progress tracking is per-browser using localStorage; clearing browser data resets progress
+- **No authentication**: All users can access and use the tool; no user accounts or tracking
+
+## License
+
+Built with love for Becky! 💙
