@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1 class="logo">Q&A ERP</h1>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h2>Welcome</h2>
+      <p>This is an ERP exposure for decision making.  The questions mean nothing and are stored nowhere.  You just have to choose one of the presented options, and the next question will appear.  If you don't choose within 5 seconds, the question will be skipped and you will not get the opportunity to answer it again.</p>
+    </section>
+
+    <section id="qa" class="qa">
+      <h2>Question Generator</h2>
+      <div id="question-area" class="question-area" aria-live="polite">Press "Load file" to begin.</div>
+      <div class="qa__filepicker">
+        <select id="file-select">
+          <option value="">Loading...</option>
+        </select>
+        <button id="load-file" class="btn">Load file</button>
+      </div>
+      <div class="qa__stack">
+        <div class="qa__toolbar">
+          <button id="next-question" class="btn">Start Questions</button>
+          <button id="reset-history" class="qa__reset">Reset history</button>
+          <small id="progress" class="qa__progress"></small>
+            <div class="qa__session">
+              <label class="qa__session-label" for="session-minutes">Minutes:</label>
+              <input id="session-minutes" class="qa__session-input" type="number" min="1" step="1" placeholder="3" />
+              <button id="start-session" class="btn qa__session-start">Start</button>
+              <small id="session-remaining" class="qa__session-remaining">--:--</small>
+            </div>
+        </div>
+        <div id="qa-controls" class="qa__controls">
+          <form id="qa-form" class="qa__form">
+            <div id="options" class="qa__options" role="radiogroup" aria-label="Question options">
+              <label class="qa__option qa__option--left">
+                <input id="choice0" type="radio" name="choice" value="0">
+                <span id="choice0-label">Real</span>
+              </label>
+              <label class="qa__option qa__option--right">
+                <input id="choice1" type="radio" name="choice" value="1">
+                <span id="choice1-label">Fake</span>
+              </label>
+            </div>
+            <div id="countdown" class="qa__countdown">Time: 3s</div>
+          </form>
+        </div>
+      </div>
+    </section>
+    
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>Built with love for Becky!</small>
+    </div>
+  </footer>
+
+  <script src="js/question-generator.js" defer></script>
+  <script src="js/script.js" defer></script>
+</body>
+</html>

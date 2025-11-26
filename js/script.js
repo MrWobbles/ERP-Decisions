@@ -1,0 +1,210 @@
+document.addEventListener('DOMContentLoaded',function(){
+  // set year
+  const year = new Date().getFullYear();
+  const yearEl = document.getElementById('year');
+  if(yearEl) yearEl.textContent = year;
+
+  // theme toggle
+  const btn = document.getElementById('theme-toggle');
+  btn?.addEventListener('click', ()=>{
+    document.body.classList.toggle('dark');
+    const pressed = document.body.classList.contains('dark');
+    btn.setAttribute('aria-pressed', String(pressed));
+  });
+
+  // contact form - simple client-side feedback
+  const form = document.getElementById('contact-form');
+  const result = document.getElementById('form-result');
+  form?.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const fd = new FormData(form);
+    const name = fd.get('name')?.toString() || 'friend';
+    // simulate send
+    result.textContent = `Thanks, ${name}! Your message was received (demo).`;
+    form.reset();
+  });
+
+  // Question generator wiring
+  const qArea = document.getElementById('question-area');
+  const fileSelect = document.getElementById('file-select');
+  const loadFileBtn = document.getElementById('load-file');
+  const nextBtn = document.getElementById('next-question');
+  const resetBtn = document.getElementById('reset-history');
+  const progress = document.getElementById('progress');
+  const qaControls = document.getElementById('qa-controls');
+  const qaForm = document.getElementById('qa-form');
+  const choice0 = document.getElementById('choice0');
+  const choice1 = document.getElementById('choice1');
+  const choice0Label = document.getElementById('choice0-label');
+  const choice1Label = document.getElementById('choice1-label');
+  const countdownEl = document.getElementById('countdown');
+  // session timer controls
+  const sessionInput = document.getElementById('session-minutes');
+  const startSessionBtn = document.getElementById('start-session');
+  const sessionRemainingEl = document.getElementById('session-remaining');
+
+  let currentQuestionIndex = null; // track index for deletion
+
+  // populate file selector from manifest
+  function populateFileSelect(){
+    const files = ['pairs-1.json', 'pairs-2.json', 'pairs-3.json', 'pairs-4.json', 'pairs-5.json'];
+    fileSelect.innerHTML = '<option value="">Select a File</option>' + 
+      files.map(f => `<option value="${f}">${f}</option>`).join('');
+  }
+
+  function updateProgress(){
+    if(!progress || typeof QAQuestionGenerator === 'undefined') return;
+    const total = QAQuestionGenerator.totalCombinations();
+    progress.textContent = `Total: ${total}`;
+  }
+
+  let timer = null;
+  let timeLeft = 0;
+  const TIME_LIMIT = 5;
+  let sessionTimer = null;
+  let sessionMsLeft = 0;
+  let sessionActive = false;
+
+  function clearTimer(){
+    if(timer) { clearInterval(timer); timer = null; }
+    if(countdownEl) countdownEl.textContent = '';
+  }
+
+  function clearSessionTimer(){
+    if(sessionTimer){ clearInterval(sessionTimer); sessionTimer = null; }
+    if(sessionRemainingEl) sessionRemainingEl.textContent = '';
+    sessionActive = false;
+  }
+
+  function startSessionTimerFromInput(){
+    const mins = Number(sessionInput?.value || 0);
+    if(!mins || mins <= 0) return false;
+    clearSessionTimer();
+    sessionMsLeft = Math.floor(mins * 60 * 1000);
+    const start = Date.now();
+    const end = start + sessionMsLeft;
+    sessionActive = true;
+    if(sessionRemainingEl) sessionRemainingEl.textContent = `${mins}:00`;
+    sessionTimer = setInterval(()=>{
+      const now = Date.now();
+      const remaining = Math.max(0, end - now);
+      sessionMsLeft = remaining;
+      const rm = Math.floor(remaining / 60000);
+      const rs = Math.floor((remaining % 60000) / 1000);
+      if(sessionRemainingEl) sessionRemainingEl.textContent = `${rm}:${String(rs).padStart(2,'0')}`;
+      if(remaining <= 0){
+        // time up: reset everything
+        clearSessionTimer();
+        clearTimer();
+        showControls(false);
+        try{ QAQuestionGenerator.resetHistory(); }catch{}
+        if(qArea) qArea.textContent = 'Session ended. All progress reset.';
+        updateProgress();
+      }
+    }, 250);
+    return true;
+  }
+
+  function showControls(show){
+    if(!qaControls) return;
+    qaControls.style.display = show ? 'flex' : 'none';
+  }
+
+  async function presentNext(){
+    if(!qArea || typeof QAQuestionGenerator === 'undefined'){
+      if(qArea) qArea.textContent = 'Generator not loaded.';
+      return;
+    }
+    const res = QAQuestionGenerator.getNextQuestion();
+    if(res.done){
+      qArea.textContent = res.text;
+      showControls(false);
+      return;
+    }
+    currentQuestionIndex = res.index; // save for deletion
+    qArea.textContent = res.text;
+    const [a, b] = res.options || [];
+    if(choice0Label) choice0Label.textContent = a || 'A';
+    if(choice1Label) choice1Label.textContent = b || 'B';
+    if(choice0) choice0.checked = false;
+    if(choice1) choice1.checked = false;
+    showControls(true);
+    updateProgress();
+    
+    clearTimer();
+    timeLeft = TIME_LIMIT;
+    if(countdownEl) countdownEl.textContent = `Time: ${timeLeft}s`;
+    timer = setInterval(()=>{
+      timeLeft -= 1;
+      if(timeLeft <= 0){
+        clearTimer();
+        // timeout = skip; delete and advance
+        QAQuestionGenerator.deletePairFromFile(currentQuestionIndex);
+        presentNext();
+        return;
+      }
+      if(countdownEl) countdownEl.textContent = `Time: ${timeLeft}s`;
+    }, 1000);
+  }
+
+  // Load file button
+  loadFileBtn?.addEventListener('click', async ()=>{
+    if(!qArea) return;
+    const file = fileSelect.value;
+    if(!file){
+      qArea.textContent = 'Please select a file.';
+      return;
+    }
+    try {
+      await QAQuestionGenerator.loadFile(file);
+      QAQuestionGenerator.resetHistory();
+      qArea.textContent = `Loaded ${file}. Press "Next question" to begin.`;
+      showControls(false);
+      updateProgress();
+    } catch(e){
+      qArea.textContent = `Error: ${e.message}`;
+      console.error(e);
+    }
+  });
+
+  // Next button (start questions and session timer if configured)
+  nextBtn?.addEventListener('click', ()=>{
+    if(!sessionActive){
+      // attempt to start session timer if user provided minutes
+      startSessionTimerFromInput();
+    }
+    presentNext();
+  });
+
+  // Start session timer (minutes)
+  startSessionBtn?.addEventListener('click', ()=>{
+    const ok = startSessionTimerFromInput();
+    if(!ok && sessionRemainingEl) sessionRemainingEl.textContent = 'Enter minutes (>0)';
+  });
+
+  // Auto-answer when radio button is clicked
+  const handleRadioChange = ()=>{
+    if(!qArea) return;
+    clearTimer();
+    const selected = document.querySelector('input[name="choice"]:checked');
+    const selText = selected?.nextElementSibling?.textContent || 'No selection';
+    qArea.textContent = `You selected: ${selText}`;
+    // delete from file (fire and forget) and advance immediately
+    QAQuestionGenerator.deletePairFromFile(currentQuestionIndex).catch(() => {});
+    setTimeout(presentNext, 600);
+  };
+  choice0?.addEventListener('change', handleRadioChange);
+  choice1?.addEventListener('change', handleRadioChange);
+
+  // Reset
+  resetBtn?.addEventListener('click', ()=>{
+    if(typeof QAQuestionGenerator === 'undefined') return;
+    QAQuestionGenerator.resetHistory();
+    clearTimer();
+    showControls(false);
+    if(qArea) qArea.textContent = 'History reset.';
+    updateProgress();
+  });
+
+  populateFileSelect();
+});
